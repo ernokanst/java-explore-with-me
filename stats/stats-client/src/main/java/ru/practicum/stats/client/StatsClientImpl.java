@@ -17,7 +17,7 @@ import java.util.*;
 
 @Slf4j
 @Service
-public class StatsClientImpl implements StatsClient{
+public class StatsClientImpl implements StatsClient {
     private final RestTemplate rest;
 
     @Autowired
