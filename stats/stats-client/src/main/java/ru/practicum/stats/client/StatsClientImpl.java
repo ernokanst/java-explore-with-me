@@ -22,7 +22,7 @@ public class StatsClientImpl implements StatsClient {
     private static final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
 
     @Autowired
-    public StatsClientImpl(@Value("${stats-server.url}") String serverUrl, RestTemplateBuilder builder) {
+    public StatsClientImpl(@Value("${stats-service.url}") String serverUrl, RestTemplateBuilder builder) {
         rest = builder.uriTemplateHandler(new DefaultUriBuilderFactory(serverUrl))
                       .requestFactory(() -> new HttpComponentsClientHttpRequestFactory())
                       .build();
