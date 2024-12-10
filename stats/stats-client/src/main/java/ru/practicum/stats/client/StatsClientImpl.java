@@ -4,14 +4,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.DefaultUriBuilderFactory;
+import org.springframework.web.util.UriComponentsBuilder;
 import ru.practicum.stats.dto.*;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 
@@ -35,10 +37,14 @@ public class StatsClientImpl implements StatsClient {
 
     @Override
     public List<ViewStatsDto> getStats(LocalDateTime start, LocalDateTime end, List<String> uris, boolean unique) {
-        String request = String.format(
-                "/stats?start=%s&end=%s&uris=%s&unique=%s", start.format(DateTimeFormatter.ofPattern(DATE_FORMAT)),
-                end.format(DateTimeFormatter.ofPattern(DATE_FORMAT)), String.join(",", uris), unique);
-        ViewStatsDto[] response = rest.getForObject(request, ViewStatsDto[].class);
-        return Arrays.stream(response).toList();
+        String uri = UriComponentsBuilder.fromPath("/stats")
+                .queryParam("start", start)
+                .queryParam("end", end)
+                .queryParam("uris", String.join(",", uris))
+                .queryParam("unique", unique)
+                .toUriString();
+        ResponseEntity<List<ViewStatsDto>> response = rest.exchange(uri, HttpMethod.GET, null,
+                new ParameterizedTypeReference<>() {});
+        return response.getBody();
     }
 }
