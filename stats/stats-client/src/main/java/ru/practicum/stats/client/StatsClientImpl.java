@@ -35,11 +35,10 @@ public class StatsClientImpl implements StatsClient {
 
     @Override
     public List<ViewStatsDto> getStats(LocalDateTime start, LocalDateTime end, List<String> uris, boolean unique) {
-        Map<String, Object> uriVariables = Map.of(
-                "start", start.format(DateTimeFormatter.ofPattern(DATE_FORMAT)),
-                "end", end.format(DateTimeFormatter.ofPattern(DATE_FORMAT)),
-                "uris", uris, "unique", unique);
-        ViewStatsDto[] response = rest.getForObject("/stats", ViewStatsDto[].class, uriVariables);
+        String request = String.format(
+                "/stats?start=%s&end=%s&uris=%s&unique=%s", start.format(DateTimeFormatter.ofPattern(DATE_FORMAT)),
+                end.format(DateTimeFormatter.ofPattern(DATE_FORMAT)), String.join(",", uris), unique);
+        ViewStatsDto[] response = rest.getForObject(request, ViewStatsDto[].class);
         return Arrays.stream(response).toList();
     }
 }
