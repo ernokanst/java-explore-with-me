@@ -8,6 +8,7 @@ import org.springframework.context.annotation.ComponentScan;
 @ComponentScan({"ru.practicum.stats", "ru.practicum.ewm"})
 public class ExploreWithMeServer {
     public static final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
+    public static final int DEFAULT_STATS_INTERVAL = 7;
 
     public static void main(String[] args) {
         SpringApplication.run(ExploreWithMeServer.class, args);

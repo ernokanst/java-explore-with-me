@@ -1,5 +1,7 @@
 package ru.practicum.ewm.event.controller;
 
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -33,8 +35,8 @@ public class PublicEventController {
                                       LocalDateTime rangeEnd,
                                       @RequestParam(defaultValue = "false") Boolean onlyAvailable,
                                       @RequestParam(defaultValue = "EVENT_DATE") EventSort sort,
-                                      @RequestParam(defaultValue = "0") int from,
-                                      @RequestParam(defaultValue = "10") int size,
+                                      @RequestParam(defaultValue = "0") @PositiveOrZero int from,
+                                      @RequestParam(defaultValue = "10") @Positive int size,
                                       HttpServletRequest request) {
         stats.addHit(new EndpointHitDto(null, "ewm-main-service", "/events",
                 request.getRemoteAddr(), LocalDateTime.now()));

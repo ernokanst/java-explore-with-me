@@ -1,9 +1,12 @@
 package ru.practicum.ewm.event.controller;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.ewm.ExploreWithMeServer;
@@ -34,9 +37,11 @@ public class AdminEventController {
                               LocalDateTime rangeStart,
                               @RequestParam(required = false) @DateTimeFormat(pattern = ExploreWithMeServer.DATE_FORMAT)
                               LocalDateTime rangeEnd,
-                              @RequestParam(defaultValue = "0") int from, @RequestParam(defaultValue = "10") int size) {
+                              @RequestParam(defaultValue = "0") @PositiveOrZero int from,
+                              @RequestParam(defaultValue = "10") @Positive int size) {
         log.info("Получение событий администратором. Пользователи: {}, состояния: {}, категории: {}, от: {}, до: {}",
                 users, states, categories, rangeStart, rangeEnd);
-        return eventService.getAllAdmin(users, states, categories, rangeStart, rangeEnd, PageRequest.of(from, size));
+        return eventService.getAllAdmin(users, states, categories, rangeStart, rangeEnd,
+                PageRequest.of(from, size, Sort.by(Sort.Direction.ASC, "id")));
     }
 }

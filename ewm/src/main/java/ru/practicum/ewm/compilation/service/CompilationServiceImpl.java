@@ -1,8 +1,10 @@
 package ru.practicum.ewm.compilation.service;
 
+import jakarta.persistence.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import ru.practicum.ewm.ExploreWithMeServer;
 import ru.practicum.ewm.compilation.dto.*;
 import ru.practicum.ewm.compilation.model.Compilation;
 import ru.practicum.ewm.compilation.storage.CompilationRepository;
@@ -10,7 +12,6 @@ import ru.practicum.ewm.event.dto.EventMapper;
 import ru.practicum.ewm.event.model.Event;
 import ru.practicum.ewm.event.storage.EventRepository;
 import ru.practicum.ewm.exceptions.NotFoundException;
-import ru.practicum.ewm.request.model.RequestStatus;
 import ru.practicum.ewm.request.storage.RequestRepository;
 import ru.practicum.stats.client.StatsClient;
 import ru.practicum.stats.dto.ViewStatsDto;
@@ -27,14 +28,17 @@ public class CompilationServiceImpl implements CompilationService {
     private final EventMapper eventMapper;
     private final StatsClient stats;
     private final RequestRepository requestRepository;
+    @PersistenceContext
+    private final EntityManager entityManager;
 
     @Override
     public CompilationDto add(NewCompilationDto compilation) {
         List<Event> events = compilation.getEvents() == null ? new ArrayList<>() : eventRepository.findAllById(compilation.getEvents());
         Map<Long, Long> views = getViewsStats(events);
+        Map<Long, Integer> confirmed = getConfirmed();
         return compilationMapper.toCompilationDto(compilationRepository.save(
                 compilationMapper.toCompilation(compilation, events)),
-                events.stream().map(x -> eventMapper.toEventShortDto(x, confirmedRequests(x.getId()),
+                events.stream().map(x -> eventMapper.toEventShortDto(x, confirmed.get(x.getId()),
                         views.get(x.getId()))).toList());
     }
 
@@ -51,8 +55,9 @@ public class CompilationServiceImpl implements CompilationService {
             c.setTitle(update.getTitle());
         }
         Map<Long, Long> views = getViewsStats(c.getEvents());
+        Map<Long, Integer> confirmed = getConfirmed();
         return compilationMapper.toCompilationDto(compilationRepository.save(c), c.getEvents().stream()
-                .map(x -> eventMapper.toEventShortDto(x, confirmedRequests(x.getId()), views.get(x.getId())))
+                .map(x -> eventMapper.toEventShortDto(x, confirmed.get(x.getId()), views.get(x.getId())))
                 .toList());
     }
 
@@ -64,9 +69,11 @@ public class CompilationServiceImpl implements CompilationService {
         } else {
             compilations = compilationRepository.findAll(pageable).getContent();
         }
-        Map<Long, Long> views = getViewsStats(compilations.stream().map(Compilation::getEvents).flatMap(List::stream).toList());
+        List<Event> events = compilations.stream().map(Compilation::getEvents).flatMap(List::stream).toList();
+        Map<Long, Long> views = getViewsStats(events);
+        Map<Long, Integer> confirmed = getConfirmed();
         return compilations.stream().map(x -> compilationMapper.toCompilationDto(x,
-                x.getEvents().stream().map(y -> eventMapper.toEventShortDto(y, confirmedRequests(y.getId()),
+                x.getEvents().stream().map(y -> eventMapper.toEventShortDto(y, confirmed.get(y.getId()),
                         views.get(y.getId()))).toList())).toList();
     }
 
@@ -74,8 +81,9 @@ public class CompilationServiceImpl implements CompilationService {
     public CompilationDto get(Long id) {
         Compilation c = compilationRepository.findById(id).orElseThrow(() -> new NotFoundException("Подборка не найдена"));
         Map<Long, Long> views = getViewsStats(c.getEvents());
+        Map<Long, Integer> confirmed = getConfirmed();
         return compilationMapper.toCompilationDto(c, c.getEvents().stream().map(x ->
-                eventMapper.toEventShortDto(x, confirmedRequests(x.getId()), views.get(x.getId()))).toList());
+                eventMapper.toEventShortDto(x, confirmed.get(x.getId()), views.get(x.getId()))).toList());
     }
 
     @Override
@@ -87,15 +95,19 @@ public class CompilationServiceImpl implements CompilationService {
         if (events == null || events.isEmpty()) return new HashMap<>();
         List<String> uris = events.stream().map(Event::getId).map(id -> "/events/" + id).toList();
         LocalDateTime start = events.stream()
-                .map(event -> event.getPublishedOn() != null ? event.getPublishedOn() : LocalDateTime.now().minusDays(7))
+                .map(event -> event.getPublishedOn() != null ? event.getPublishedOn() :
+                        LocalDateTime.now().minusDays(ExploreWithMeServer.DEFAULT_STATS_INTERVAL))
                 .min(LocalDateTime::compareTo)
-                .orElse(LocalDateTime.now().minusDays(7));
+                .orElse(LocalDateTime.now().minusDays(ExploreWithMeServer.DEFAULT_STATS_INTERVAL));
         return stats.getStats(start, LocalDateTime.now(), uris, true).stream()
                 .collect(Collectors.toMap(x -> Long.parseLong(x.getUri().replace("/events/",
                         "")), ViewStatsDto::getHits));
     }
 
-    private Integer confirmedRequests(Long eventId) {
-        return requestRepository.countAllByEventIdAndStatus(eventId, RequestStatus.CONFIRMED);
+    private Map<Long, Integer> getConfirmed() {
+        return entityManager.createQuery("SELECT r.event.id AS id, COUNT(r) AS count FROM Request r " +
+                        "WHERE r.status = 'CONFIRMED' GROUP BY r.event.id", Tuple.class).getResultStream()
+                .collect(Collectors.toMap(tuple -> ((Number) tuple.get("id")).longValue(),
+                        tuple -> ((Number) tuple.get("count")).intValue()));
     }
 }

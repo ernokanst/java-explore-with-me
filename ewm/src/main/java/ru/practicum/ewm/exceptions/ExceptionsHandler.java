@@ -54,12 +54,12 @@ public class ExceptionsHandler {
     }
 
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    @ExceptionHandler(Exception.class)
-    public ApiError handleException(Exception exception) {
-        exception.printStackTrace();
+    @ExceptionHandler(Throwable.class)
+    public ApiError handleException(Throwable throwable) {
+        throwable.printStackTrace();
         return new ApiError(
-                exception.getClass().toString(),
-                exception.getMessage(),
+                throwable.getClass().toString(),
+                throwable.getMessage(),
                 "Внутренняя ошибка сервера",
                 HttpStatus.INTERNAL_SERVER_ERROR.toString(),
                 LocalDateTime.now());
