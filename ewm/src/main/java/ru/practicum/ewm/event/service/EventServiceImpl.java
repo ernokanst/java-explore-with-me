@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import ru.practicum.ewm.ExploreWithMeServer;
 import ru.practicum.ewm.category.model.Category;
 import ru.practicum.ewm.category.storage.CategoryRepository;
+import ru.practicum.ewm.comment.model.Comment;
+import ru.practicum.ewm.comment.storage.CommentRepository;
 import ru.practicum.ewm.event.dto.*;
 import ru.practicum.ewm.event.model.*;
 import ru.practicum.ewm.event.storage.EventRepository;
@@ -26,6 +28,7 @@ public class EventServiceImpl implements EventService {
     private final EventMapper eventMapper;
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
+    private final CommentRepository commentRepository;
     private final StatsClient stats;
     @PersistenceContext
     private final EntityManager entityManager;
@@ -35,7 +38,7 @@ public class EventServiceImpl implements EventService {
         User initiator = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("Пользователь не найден"));
         Category category = categoryRepository.findById(event.getCategory()).orElseThrow(() -> new NotFoundException("Категория не найдена"));
         Event e = eventMapper.toEvent(event, initiator, category);
-        return eventMapper.toEventFullDto(eventRepository.save(e), 0, 0L);
+        return eventMapper.toEventFullDto(eventRepository.save(e), 0, 0L, new ArrayList<>());
     }
 
     @Override
@@ -49,7 +52,7 @@ public class EventServiceImpl implements EventService {
         }
         Map<Long, Integer> confirmed = getConfirmed();
         return eventMapper.toEventFullDto(eventRepository.save(eventMapper.toAdminUpdatedEvent(e, event)),
-                confirmed.get(eventId) != null ? confirmed.get(eventId) : 0, getViewsStats(List.of(e)).get(eventId));
+                confirmed.get(eventId), getViewsStats(List.of(e)).get(eventId), commentRepository.findByEventId(eventId));
     }
 
     @Override
@@ -63,7 +66,7 @@ public class EventServiceImpl implements EventService {
         }
         Map<Long, Integer> confirmed = getConfirmed();
         return eventMapper.toEventFullDto(eventRepository.save(eventMapper.toUserUpdatedEvent(e, event)),
-                confirmed.get(eventId) != null ? confirmed.get(eventId) : 0, getViewsStats(List.of(e)).get(eventId));
+                confirmed.get(eventId), getViewsStats(List.of(e)).get(eventId), commentRepository.findByEventId(eventId));
     }
 
     @Override
@@ -88,8 +91,9 @@ public class EventServiceImpl implements EventService {
                 states, categories, rangeStart, rangeEnd, pageable);
         Map<Long, Long> views = getViewsStats(events);
         Map<Long, Integer> confirmed = getConfirmed();
-        return events.stream().map(x -> eventMapper.toEventFullDto(x,
-                confirmed.get(x.getId()) != null ? confirmed.get(x.getId()) : 0, views.get(x.getId()))).toList();
+        Map<Long, List<Comment>> comments = getComments(events);
+        return events.stream().map(x -> eventMapper.toEventFullDto(x, confirmed.get(x.getId()),
+                views.get(x.getId()), comments.get(x.getId()))).toList();
     }
 
     @Override
@@ -117,12 +121,13 @@ public class EventServiceImpl implements EventService {
                         event.getParticipantLimit() == 0 || event.getParticipantLimit() >  confirmed.get(event.getId()))
                 .toList();
         Map<Long, Long> views = getViewsStats(events);
+        Map<Long, List<Comment>> comments = getComments(events);
         return events.stream().sorted((event1, event2) -> switch (sort) {
             case EVENT_DATE -> event1.getEventDate().compareTo(event2.getEventDate());
             case VIEWS ->  Math.toIntExact(views.get(event1.getId()) - views.get(event2.getId()));
             case null -> 0;
-        }).map(x -> eventMapper.toEventShortDto(x, confirmed.get(x.getId()) != null ? confirmed.get(x.getId()) : 0,
-                views.get(x.getId()))).toList();
+        }).map(x -> eventMapper.toEventShortDto(x, confirmed.get(x.getId()), views.get(x.getId()),
+                comments.get(x.getId()))).toList();
     }
 
     @Override
@@ -130,8 +135,9 @@ public class EventServiceImpl implements EventService {
         List<Event> events = eventRepository.findAllByInitiatorId(userId, pageable);
         Map<Long, Long> views = getViewsStats(events);
         Map<Long, Integer> confirmed = getConfirmed();
-        return events.stream().map(x -> eventMapper.toEventShortDto(x,
-                confirmed.get(x.getId()) != null ? confirmed.get(x.getId()) : 0, views.get(x.getId()))).toList();
+        Map<Long, List<Comment>> comments = getComments(events);
+        return events.stream().map(x -> eventMapper.toEventShortDto(x, confirmed.get(x.getId()),
+                views.get(x.getId()), comments.get(x.getId()))).toList();
     }
 
     @Override
@@ -141,8 +147,8 @@ public class EventServiceImpl implements EventService {
             throw new ConflictException("Пользователь не соответствует создателю события");
         }
         Map<Long, Integer> confirmed = getConfirmed();
-        return eventMapper.toEventFullDto(event, confirmed.get(eventId) != null ? confirmed.get(eventId) : 0,
-                getViewsStats(List.of(event)).get(eventId));
+        return eventMapper.toEventFullDto(event, confirmed.get(eventId), getViewsStats(List.of(event)).get(eventId),
+                commentRepository.findByEventId(eventId));
     }
 
     @Override
@@ -152,8 +158,8 @@ public class EventServiceImpl implements EventService {
             throw new NotFoundException("Событие не опубликовано");
         }
         Map<Long, Integer> confirmed = getConfirmed();
-        return eventMapper.toEventFullDto(event, confirmed.get(eventId) != null ? confirmed.get(eventId) : 0,
-                getViewsStats(List.of(event)).get(eventId));
+        return eventMapper.toEventFullDto(event, confirmed.get(eventId), getViewsStats(List.of(event)).get(eventId),
+                commentRepository.findByEventId(eventId));
     }
 
     private Map<Long, Long> getViewsStats(List<Event> events) {
@@ -174,5 +180,17 @@ public class EventServiceImpl implements EventService {
                 "WHERE r.status = 'CONFIRMED' GROUP BY r.event.id", Tuple.class).getResultStream()
                 .collect(Collectors.toMap(tuple -> ((Number) tuple.get("id")).longValue(),
                         tuple -> ((Number) tuple.get("count")).intValue()));
+    }
+
+    private Map<Long, List<Comment>> getComments(List<Event> events) {
+        List<Comment> comments = commentRepository.findByEventIdIn(events.stream().map(Event::getId).toList());
+        Map<Long, List<Comment>> result = new HashMap<>();
+        for (Comment c : comments) {
+            if (!(result.containsKey(c.getEvent().getId()))) {
+                result.put(c.getEvent().getId(), new ArrayList<>());
+            }
+            result.get(c.getEvent().getId()).add(c);
+        }
+        return result;
     }
 }

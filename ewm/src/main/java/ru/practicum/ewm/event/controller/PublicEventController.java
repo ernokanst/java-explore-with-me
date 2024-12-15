@@ -16,7 +16,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import ru.practicum.stats.dto.EndpointHitDto;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.validation.annotation.Validated;
 
+@Validated
 @Slf4j
 @RequiredArgsConstructor
 @RestController

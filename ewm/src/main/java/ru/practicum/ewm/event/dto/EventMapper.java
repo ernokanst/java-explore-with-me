@@ -4,16 +4,22 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import ru.practicum.ewm.category.dto.CategoryMapper;
 import ru.practicum.ewm.category.model.Category;
+import ru.practicum.ewm.comment.dto.CommentMapper;
+import ru.practicum.ewm.comment.model.Comment;
 import ru.practicum.ewm.event.model.*;
 import ru.practicum.ewm.user.dto.UserMapper;
 import ru.practicum.ewm.user.model.User;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
 public class EventMapper {
     private final CategoryMapper categoryMapper;
     private final UserMapper userMapper;
+    private final CommentMapper commentMapper;
 
     public Event toEvent(NewEventDto event, User initiator, Category category) {
         return new Event(
@@ -34,12 +40,12 @@ public class EventMapper {
         );
     }
 
-    public EventFullDto toEventFullDto(Event event, Integer confirmedRequests, Long views) {
+    public EventFullDto toEventFullDto(Event event, Integer confirmedRequests, Long views, List<Comment> comments) {
         return new EventFullDto(
                 event.getId(),
                 event.getAnnotation(),
                 categoryMapper.toCategoryDto(event.getCategory()),
-                confirmedRequests,
+                confirmedRequests != null ? confirmedRequests : 0,
                 event.getCreatedOn(),
                 event.getDescription(),
                 event.getEventDate(),
@@ -51,21 +57,23 @@ public class EventMapper {
                 event.getRequestModeration(),
                 event.getState(),
                 event.getTitle(),
-                views
+                views != null ? views : 0,
+                comments != null ? comments.stream().map(commentMapper::toCommentDto).collect(Collectors.toSet()) : new HashSet<>()
         );
     }
 
-    public EventShortDto toEventShortDto(Event event, Integer confirmedRequests, Long views) {
+    public EventShortDto toEventShortDto(Event event, Integer confirmedRequests, Long views, List<Comment> comments) {
         return new EventShortDto(
                 event.getId(),
                 event.getAnnotation(),
                 categoryMapper.toCategoryDto(event.getCategory()),
-                confirmedRequests,
+                confirmedRequests != null ? confirmedRequests : 0,
                 event.getEventDate(),
                 userMapper.toUserShortDto(event.getInitiator()),
                 event.getPaid(),
                 event.getTitle(),
-                views
+                views != null ? views : 0,
+                comments != null ? comments.stream().map(commentMapper::toCommentDto).collect(Collectors.toSet()) : new HashSet<>()
         );
     }
 
