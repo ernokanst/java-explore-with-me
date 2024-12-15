@@ -4,8 +4,10 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
 import ru.practicum.ewm.ExploreWithMeServer;
 import ru.practicum.ewm.category.dto.CategoryDto;
+import ru.practicum.ewm.comment.dto.CommentDto;
 import ru.practicum.ewm.user.dto.UserShortDto;
 import java.time.LocalDateTime;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -24,4 +26,5 @@ public class EventShortDto {
     private Boolean paid;
     private String title;
     private Long views;
+    private Set<CommentDto> comments;
 }

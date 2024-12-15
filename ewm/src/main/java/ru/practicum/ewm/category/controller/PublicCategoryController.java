@@ -10,7 +10,9 @@ import org.springframework.web.bind.annotation.*;
 import ru.practicum.ewm.category.dto.CategoryDto;
 import ru.practicum.ewm.category.service.CategoryService;
 import java.util.List;
+import org.springframework.validation.annotation.Validated;
 
+@Validated
 @Slf4j
 @RequiredArgsConstructor
 @RestController

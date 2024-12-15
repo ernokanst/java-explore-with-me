@@ -15,7 +15,9 @@ import ru.practicum.ewm.event.dto.UpdateEventAdminRequest;
 import ru.practicum.ewm.event.service.EventService;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.validation.annotation.Validated;
 
+@Validated
 @Slf4j
 @RequiredArgsConstructor
 @RestController

@@ -12,7 +12,9 @@ import org.springframework.web.bind.annotation.*;
 import ru.practicum.ewm.user.dto.*;
 import ru.practicum.ewm.user.service.UserService;
 import java.util.List;
+import org.springframework.validation.annotation.Validated;
 
+@Validated
 @Slf4j
 @RequiredArgsConstructor
 @RestController
